@@ -6,6 +6,8 @@ from sklearn import linear_model
 import xgboost as xgb
 from sklearn.svm import SVR
 from sklearn.kernel_ridge import KernelRidge
+import math
+from sklearn import cross_validation
 
 
 class BaseEstimator(object):
@@ -36,16 +38,37 @@ class XGBEstimator(BaseEstimator):
     xgboost
     """
     @timethis
-    def train(self, nd_train, nd_label):
+    def xgb_cv(self, nd_train, nd_label):
         dtrain = xgb.DMatrix(nd_train, label=nd_label)
-    
-        param = {'bst:max_depth':10, 'bst:eta':1, 'silent':1, 'objective':'reg:linear' }
+        param = {'bst:max_depth':10, 'bst:eta':0.3, 'silent':1, 'objective':'reg:linear' }
         param['nthread'] = 4
-        #param['eval_metric'] = 'RMSE'
+        param['eval_metric'] = 'rmse'
         num_round = 30
         hist = xgb.cv(param, dtrain, num_round, nfold=2)
         print(hist)
 
+    def cv(self, nd_train, nd_label):
+        X_train, X_test, y_train, y_test = cross_validation.train_test_split(\
+                        nd_train, nd_label, test_size=0.5, random_state=0)
+        bst = self.train(X_train, y_train)
+        ypred = self.predict(bst, X_test)
+        print('cv score:', hd_metrics.fmean_squared_error(y_test, ypred))
+    
+    def train(self, nd_train, nd_label):
+        dtrain = xgb.DMatrix(nd_train, label=nd_label)
+        param = {'bst:max_depth':10, 'bst:eta':0.3, 'silent':1, 'objective':'reg:linear' }
+        param['nthread'] = 4
+        param['eval_metric'] = 'rmse'
+        plst = param.items()
+        num_round = 30    
+        bst = xgb.train(plst, dtrain, num_round)
+        return bst
+        
+    def predict(self, bst, nd_test):
+        dtest = xgb.DMatrix(nd_test)
+        ypred = bst.predict(dtest)
+        return ypred
+        
 
 class LassoEstimator(BaseEstimator):
     """

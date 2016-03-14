@@ -3,10 +3,11 @@ import pandas as pd
 import config
 from dataloader import DataLoader
 from preprocessor import PreProcessor
-from util import saveit, loadit
+from util import saveit, loadit, submit
 from feature_generator import FeatureGenerator, RFRFeatureGenerator, SECFeatureGenerator
 from estimator import (RFREstimator, XGBEstimator, LassoEstimator, RidgeEstimator, 
                         ElasticNetEstimator, SVREstimator, KernelRidgeEstimator)
+import itertools
 
 
 class FeatureLoader(object):
@@ -117,7 +118,7 @@ class FeatureLoader(object):
         if SEQ is True:   
             secfeatgen.extract_seq_related_feat(self.df_data) 
         if COSDIST is True:
-            secfeatgen.extract_cosinedist_feat(self.df_data, self.df_join_ng)            
+            secfeatgen.extract_cosinedist_feat(self.df_data, self.df_w2vlem_join)            
         if W2V is True:
             secfeatgen.extract_w2v_feat(self.df_w2vlem)
                                     
@@ -136,23 +137,30 @@ class FeatureLoader(object):
         feat_list = [df_wordcountfeats, df_rfrin_feats, df_distancefeats, df_brand_feats, \
                     df_tfidf_feats, df_compressdist_feats, df_seq_feats, df_cosdist_feats, \
                     df_w2v_feats]
+                    
+        df_feats = pd.DataFrame(index=range(self.df_data.shape[0]))
         for df in feat_list:
             df_feats = pd.merge(df_feats, df, left_index=True, right_index=True)
         saveit(df_feats, 'df_feats')
 
         # Divide into train and test data
         nd_train = df_feats[:self.n_train].values
-        nd_test = df_feats[self.n_train:].values
-
+        nd_test = df_feats[self.n_train:].values            
+                   
         return nd_train, nd_test, self.nd_label
 
 if __name__ == '__main__': 
     # Load features
-    featloader = FeatureLoader(DATA=True, NGRAM=True, W2VLEM=True)
-    nd_train, nd_test, nd_label = featloader.re_load(ALL=True)
-
+    featloader = FeatureLoader(DATA=False, NGRAM=False, W2VLEM=False)
+    nd_train, nd_test, nd_label = featloader.re_load()
+    
     # xgboost estimator
-    XGBEstimator().train(nd_train, nd_label)
+    xgbest = XGBEstimator()
+    xgbest.cv(nd_train, nd_label)
+    bst = xgbest.train(nd_train, nd_label)
+    ypred = xgbest.predict(bst, nd_test)
+    submit(ypred)
+    
 
     # Lasso estimator
     #LassoEstimator().train(nd_train, nd_label)

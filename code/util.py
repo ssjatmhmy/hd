@@ -3,6 +3,8 @@ from functools import wraps
 import pickle
 import os
 import config
+import numpy as np
+import pandas as pd
 
 
 def timethis(func):
@@ -40,3 +42,14 @@ def loadit(fname):
         df = pickle.load(f) 
     return df
             
+
+def submit(ypred):
+    from dataloader import DataLoader
+    dataloader = DataLoader(config) 
+    df_test = dataloader.load_test_data()
+    id_test = df_test['id']
+    pd.DataFrame({"id": id_test, "relevance": ypred}).to_csv('submission.csv',index=False)
+    
+    
+    
+    

@@ -1,3 +1,5 @@
+from nltk.tokenize import TreebankWordTokenizer
+from nltk.stem import wordnet
 import re
 import os
 fdir = os.path.split(os.path.realpath(__file__))[0]
@@ -79,7 +81,12 @@ def clean_func(s):
     str_number = {'zero':'0','one':'1','two':'2','three':'3','four':'4','five':'5','six':'6', \
                     'seven':'7','eight':'8','nine':'0'}
     s = (" ").join([str_number[z] if z in str_number else z for z in s.split(" ")])
-    
+
+    # w2v lemmatize
+    #toker = TreebankWordTokenizer()
+    #lemmer = wordnet.WordNetLemmatizer()       
+    #tokens = toker.tokenize(s)
+    #s = " ".join([lemmer.lemmatize(z) for z in tokens])
     return s
 
 

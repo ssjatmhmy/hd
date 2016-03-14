@@ -461,7 +461,7 @@ class SECFeatureGenerator(object):
         return pairwise_distances(ta, tb, metric='cosine')[0][0]    
         
     @timethis
-    def extract_cosinedist_feat(self, df_data, df_join_ng):
+    def extract_cosinedist_feat(self, df_data, df_w2vlem_join):
         """
         Extract cosine distance features.
         Note: this func is very slow. It would cost a few hours.       
@@ -469,15 +469,15 @@ class SECFeatureGenerator(object):
         df_feat = pd.DataFrame(index=df_data.index.values)
         tfv = TfidfVectorizer(ngram_range=(2,3), min_df=2)
         
-        print('computing qt_unigram_cosdist')
-        tfv.fit(list(df_join_ng['q_unigram_join'].values)+list(df_join_ng['t_unigram_join'].values)) 
-        qt_unigram_func = lambda x: self._cosine_dist(x['q_unigram_join'], x['t_unigram_join'], tfv)
-        df_feat['qt_unigram_cosdist'] = df_join_ng.apply(qt_unigram_func, axis=1)   
+        print('computing qt_w2v_cosdist')
+        tfv.fit(list(df_w2vlem_join['q_w2v'].values)+list(df_w2vlem_join['t_w2v'].values)) 
+        qt_unigram_func = lambda x: self._cosine_dist(x['q_w2v'], x['t_w2v'], tfv)
+        df_feat['qt_w2v_cosdist'] = df_w2vlem_join.apply(qt_unigram_func, axis=1)   
         
-        print('computing qd_unigram_cosdist')
-        tfv.fit(list(df_join_ng['q_unigram_join'].values)+list(df_join_ng['d_unigram_join'].values)) 
-        qd_unigram_func = lambda x: self._cosine_dist(x['q_unigram_join'], x['d_unigram_join'], tfv)
-        df_feat['qd_unigram_cosdist'] = df_join_ng.apply(qd_unigram_func, axis=1)   
+        print('computing qd_w2v_cosdist')
+        tfv.fit(list(df_w2vlem_join['q_w2v'].values)+list(df_w2vlem_join['d_w2v'].values)) 
+        qd_unigram_func = lambda x: self._cosine_dist(x['q_w2v'], x['d_w2v'], tfv)
+        df_feat['qd_w2v_cosdist'] = df_w2vlem_join.apply(qd_unigram_func, axis=1)   
         
         print('computing qt_cosdist')
         tfv.fit(list(df_data['q'].values) + list(df_data['t'].values)) 
