@@ -15,7 +15,7 @@ DATA_PATH = os.path.join(root, 'data')
 NUM_TRAIN = None
 # How many samples would you like to get from test data. Set to None if you want to load all the \
 # data
-NUM_TEST = 2
+NUM_TEST = None
 # How many product descriptions would you like to get from product description data. Set to None if\
 # you want to load all the data
 NUM_DESC = None 
