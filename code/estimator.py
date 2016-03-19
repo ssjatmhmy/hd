@@ -36,7 +36,14 @@ class RFREstimator(BaseEstimator):
         print(model.best_params_)
         print("Best CV score:")
         print(model.best_score_)
+        return model
         
+    def predict(self, model, nd_test):
+        ypred = model.predict(nd_test)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
+        return ypred
+                
         
 class XGBEstimator(BaseEstimator):
     """
@@ -132,6 +139,7 @@ class RidgeEstimator(BaseEstimator):
         print(model.best_params_)
         print("Best CV score:")
         print(model.best_score_)
+        return model
         
     def predict(self, model, nd_test):
         ypred = model.predict(nd_test)

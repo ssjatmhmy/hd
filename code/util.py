@@ -35,13 +35,22 @@ def saveit(df, fname):
 
 def loadit(fname):
     """
-    Load pd.DataFrame from pickle file.
+    Load obj from pickle file.
     """
     pklname = fname + '.pkl'
     with open(os.path.join('tmp', pklname), 'rb') as f:
-        df = pickle.load(f) 
-    return df
+        obj = pickle.load(f) 
+    return obj
                                   
+
+def dumpit(obj, fname):
+    """
+    Dump the obj using pickle.
+    """
+    pklname = fname + '.pkl'
+    with open(os.path.join('tmp', pklname), 'wb') as f:
+        pickle.dump(obj, f, -1)
+               
 
 def submit(ypred):
     from dataloader import DataLoader
