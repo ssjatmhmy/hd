@@ -8,19 +8,24 @@ from sklearn.svm import SVR
 from sklearn.kernel_ridge import KernelRidge
 import math
 from sklearn import cross_validation
+from abc import ABCMeta, abstractmethod
 
 
 class BaseEstimator(object):
-    def __init__(self):
-        print("Start training..")
-
+    def __init__(self, name):
+        self.name = name
+        
 
 class RFREstimator(BaseEstimator):
     """
     skearn.ensemble.RandomForestRegressor
     """
+    def __init__(self):
+        super(RFREstimator, self).__init__('rfr')
+        
     @timethis
     def train(self, nd_train, nd_label):
+        print("Start training {:s}..".format(self.name))
         rfr = RandomForestRegressor(n_estimators=500, n_jobs=-1, random_state=2016, verbose=1)
         param_grid = {'max_features': [35], 'max_depth': [30]}
         model = grid_search.GridSearchCV(estimator=rfr, param_grid=param_grid, n_jobs=-1, cv=2, \
@@ -37,6 +42,9 @@ class XGBEstimator(BaseEstimator):
     """
     xgboost
     """
+    def __init__(self):
+        super(XGBEstimator, self).__init__('xgboost')
+        
     @timethis
     def xgb_cv(self, nd_train, nd_label):
         dtrain = xgb.DMatrix(nd_train, label=nd_label)
@@ -46,7 +54,8 @@ class XGBEstimator(BaseEstimator):
         num_round = 30
         hist = xgb.cv(param, dtrain, num_round, nfold=2)
         print(hist)
-
+    
+    @timethis
     def cv(self, nd_train, nd_label):
         X_train, X_test, y_train, y_test = cross_validation.train_test_split(\
                         nd_train, nd_label, test_size=0.5, random_state=0)
@@ -54,7 +63,9 @@ class XGBEstimator(BaseEstimator):
         ypred = self.predict(bst, X_test)
         print('cv score:', hd_metrics.fmean_squared_error(y_test, ypred))
     
+    @timethis
     def train(self, nd_train, nd_label):
+        print("Start training {:s}..".format(self.name))
         dtrain = xgb.DMatrix(nd_train, label=nd_label)
         param = {'bst:max_depth':10, 'bst:eta':0.3, 'silent':1, 'objective':'reg:linear' }
         param['nthread'] = 4
@@ -63,10 +74,12 @@ class XGBEstimator(BaseEstimator):
         num_round = 30    
         bst = xgb.train(plst, dtrain, num_round)
         return bst
-        
+      
     def predict(self, bst, nd_test):
         dtest = xgb.DMatrix(nd_test)
         ypred = bst.predict(dtest)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
         return ypred
         
 
@@ -74,8 +87,12 @@ class LassoEstimator(BaseEstimator):
     """
     skearn.linear_model.Lasso
     """
+    def __init__(self):
+        super(LassoEstimator, self).__init__('lasso')
+        
     @timethis
     def train(self, nd_train, nd_label):
+        print("Start training {:s}..".format(self.name))
         lso = linear_model.Lasso(alpha = 0.1)
         param_grid = {'alpha': [0.001], 'max_iter': [4000]}
         model = grid_search.GridSearchCV(estimator=lso, param_grid=param_grid, n_jobs=-1, cv=2, \
@@ -86,14 +103,25 @@ class LassoEstimator(BaseEstimator):
         print(model.best_params_)
         print("Best CV score:")
         print(model.best_score_)
+        return model
+        
+    def predict(self, model, nd_test):
+        ypred = model.predict(nd_test)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
+        return ypred
         
         
 class RidgeEstimator(BaseEstimator):
     """
     skearn.linear_model.Ridge
     """
+    def __init__(self):
+        super(RidgeEstimator, self).__init__('ridge')
+        
     @timethis
     def train(self, nd_train, nd_label):
+        print("Start training {:s}..".format(self.name))
         rid = linear_model.Ridge(alpha = 0.1)
         param_grid = {'alpha': [0.5], 'max_iter': [4000]}
         model = grid_search.GridSearchCV(estimator=rid, param_grid=param_grid, n_jobs=-1, cv=2, \
@@ -104,6 +132,12 @@ class RidgeEstimator(BaseEstimator):
         print(model.best_params_)
         print("Best CV score:")
         print(model.best_score_)
+        
+    def predict(self, model, nd_test):
+        ypred = model.predict(nd_test)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
+        return ypred
         
         
 class KernelRidgeEstimator(BaseEstimator):

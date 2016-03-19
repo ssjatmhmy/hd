@@ -1,3 +1,4 @@
+import ipdb
 import pandas as pd
 import numpy as np
 import re
@@ -357,8 +358,14 @@ class RFRFeatureGenerator(object):
         df_feat = pd.DataFrame(index=range(df_data.shape[0]))
         tfidf = TfidfVectorizer(ngram_range=(2, 4), stop_words='english')
         tsvd = TruncatedSVD(n_components=n_components, random_state = 2016)
-        tfidf.fit(df_data['q'].tolist()+df_data['t'].tolist()+df_data['d'].tolist())
+        df_data['q'].to_csv('q')
+        df_data['t'].to_csv('t')
+        df_data['d'].to_csv('d')
+        tfidf.set_params(input='filename')        
+        tfidf.fit(['q','t','d'])
+        tfidf.set_params(input='content')  
         for col in ['q', 't', 'd', 'b']:
+            print('process column', col)
             txt = df_data[col]
             tfidf_mat = tfidf.transform(txt)
             nd_feat = tsvd.fit_transform(tfidf_mat)
@@ -470,17 +477,32 @@ class SECFeatureGenerator(object):
         tfv = TfidfVectorizer(ngram_range=(2,3), min_df=2)
         
         print('computing qt_w2v_cosdist')
-        tfv.fit(list(df_w2vlem_join['q_w2v'].values)+list(df_w2vlem_join['t_w2v'].values)) 
+        df_w2vlem_join['q_w2v'].to_csv('q_w2v', index=False)
+        df_w2vlem_join['t_w2v'].to_csv('t_w2v', index=False)
+        tfv.set_params(input='filename')
+        tfv.fit(['q_w2v', 't_w2v'])# list(df_w2vlem_join['q_w2v'].values)+list(df_w2vlem_join['t_w2v'].values)
+        tfv.set_params(input='content')        
+        print('done fitting')
         qt_unigram_func = lambda x: self._cosine_dist(x['q_w2v'], x['t_w2v'], tfv)
         df_feat['qt_w2v_cosdist'] = df_w2vlem_join.apply(qt_unigram_func, axis=1)   
         
-        print('computing qd_w2v_cosdist')
-        tfv.fit(list(df_w2vlem_join['q_w2v'].values)+list(df_w2vlem_join['d_w2v'].values)) 
-        qd_unigram_func = lambda x: self._cosine_dist(x['q_w2v'], x['d_w2v'], tfv)
-        df_feat['qd_w2v_cosdist'] = df_w2vlem_join.apply(qd_unigram_func, axis=1)   
+        if True: # You can abandon this feature because it costs too much time (more than 24 hours). 
+            print('computing qd_w2v_cosdist')
+            df_w2vlem_join['d_w2v'].to_csv('d_w2v', index=False)
+            tfv.set_params(input='filename')
+            tfv.fit(['q_w2v', 'd_w2v'])# list(df_w2vlem_join['q_w2v'].values)+list(df_w2vlem_join['d_w2v'].values)
+            tfv.set_params(input='content')
+            print('done fitting')
+            qd_unigram_func = lambda x: self._cosine_dist(x['q_w2v'], x['d_w2v'], tfv)
+            df_feat['qd_w2v_cosdist'] = df_w2vlem_join.apply(qd_unigram_func, axis=1)   
         
         print('computing qt_cosdist')
-        tfv.fit(list(df_data['q'].values) + list(df_data['t'].values)) 
+        df_data['q'].to_csv('q', index=False)
+        df_data['t'].to_csv('t', index=False)
+        tfv.set_params(input='filename')
+        tfv.fit(['q', 't'])# list(df_data['q'].values) + list(df_data['t'].values)
+        tfv.set_params(input='content')
+        print('done fitting')
         qt_func = lambda x: self._cosine_dist(x['q'], x['t'], tfv)
         df_feat['qt_cosdist'] = df_data.apply(qt_func, axis=1)              
         

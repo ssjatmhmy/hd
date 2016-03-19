@@ -1,4 +1,3 @@
-import ipdb
 import numpy as np
 import pandas as pd
 import config
@@ -9,6 +8,8 @@ from feature_generator import FeatureGenerator, RFRFeatureGenerator, SECFeatureG
 from estimator import (RFREstimator, XGBEstimator, LassoEstimator, RidgeEstimator, 
                         ElasticNetEstimator, SVREstimator, KernelRidgeEstimator)
 import itertools
+from sklearn import cross_validation
+from hd_metrics import fmean_squared_error
 
 
 class FeatureLoader(object):
@@ -22,9 +23,7 @@ class FeatureLoader(object):
           
         if DATA is True:
             # Load the raw data and clean text
-            df_data, self.n_train, self.nd_label = self.dataloader.load_and_merge_all()         
-            print(df_data.shape, self.n_train)
-            ipdb.set_trace()   
+            df_data, self.n_train, self.nd_label = self.dataloader.load_and_merge_all()          
             df_data = self.preproc.clean_text(df_data)
             self.n_data = df_data.shape[0]
             saveit(df_data, 'df_data')
@@ -41,7 +40,7 @@ class FeatureLoader(object):
             saveit(df_ngram, 'df_ngram')
         # Join ngram
         if JOINNG is True:
-            self.df_join_ng = self.preproc.join_ngram(loadit('df_ngram'))
+            df_join_ng = self.preproc.join_ngram(loadit('df_ngram'))
             saveit(df_join_ng, 'df_join_ng')
         # Word2Vec Lemmatize
         if W2VLEM is True:
@@ -112,7 +111,7 @@ class FeatureLoader(object):
             rfrfeatgen.extract_brand_feats(loadit('df_ngram'), loadit('df_data'), loadit('df_wordcountfeats'))
         # get tfidf features
         if TFIDF is True:
-            rfrfeatgen.extract_tfidf_feats(loadit('df_data'), 10)
+            rfrfeatgen.extract_tfidf_feats(loadit('df_data'), 7)
             
         # SEC Feature extraction
         secfeatgen = SECFeatureGenerator(config)      
@@ -155,25 +154,50 @@ class FeatureLoader(object):
 
 if __name__ == '__main__': 
     # Load features
-    featloader = FeatureLoader(DATA=False, NGRAM=False, JOINNG=True, W2VLEM=False)
-    nd_train, nd_test, nd_label = featloader.re_load(ALL=True,WORDCOUNT=True)
+    featloader = FeatureLoader(DATA=False, NGRAM=False, JOINNG=False, W2VLEM=False)
+    nd_train, nd_test, nd_label = featloader.load()
     
     # xgboost estimator
-    xgbest = XGBEstimator()
-    xgbest.cv(nd_train, nd_label)
-    bst = xgbest.train(nd_train, nd_label)
-    ypred = xgbest.predict(bst, nd_test)
-    submit(ypred)
-    
+    #est = XGBEstimator()
+    #xgbest.cv(nd_train, nd_label)
+    #model = est.train(nd_train, nd_label)
+    #xg_ypred = est.predict(model, nd_test)
 
-    # Lasso estimator
-    #LassoEstimator().train(nd_train, nd_label)
+    # Split train data into two part
+    nd_t1, nd_t2, nd_l1, nd_l2 = cross_validation.train_test_split(\
+                nd_train, nd_label, test_size=0.5, random_state=2016)
     
-    # Ridge estimator
-    #RidgeEstimator().train(nd_train, nd_label)
+    # Get predicts of different estimators
+    ypreds = {}     
+    for est in [XGBEstimator(), LassoEstimator(), RidgeEstimator(), RFREstimator()]:
+        model = est.train(nd_t1, nd_l1)
+        ypred = est.predict(model, nd_t2)
+        ypreds[est.name] = ypred
+        
+    # init weights
+    weights = {}
+    counts = {}
+    for name in ypreds.keys():
+        weights[name] = 0.
+        counts[name] = 0.
+    ensem_ypred = ypreds['xgboost']
+    weights['xgboost'] = 1.
+    counts['xgboost'] = 1.
     
-    # RF estimator
-    #RFREstimator().train(nd_train, nd_label)
-
+    best_score = 1.
+    sumcounts = 1.
+    for name in ypreds.keys():
+        
+        for name in ypreds.keys():
+            weights[name] = counts[name]/sumcounts
+            
+        tmp_ypred = (ensem_ypred + ypreds[name])/2.
+        score = fmean_squared_error(nd_l2, tmp_ypred)
+        if score < best_score:
+            best_choice = name
+            best_score = score
+        sumcounts += 1.
+    weights[best_choice] += 1.
+    #submit(xg_ypred)
 
 
