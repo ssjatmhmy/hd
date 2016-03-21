@@ -6,10 +6,11 @@ from preprocessor import PreProcessor
 from util import saveit, loadit, dumpit, submit
 from feature_generator import FeatureGenerator, RFRFeatureGenerator, SECFeatureGenerator
 from estimator import (RFREstimator, XGBEstimator, LassoEstimator, RidgeEstimator, 
-                        ElasticNetEstimator, SVREstimator, KernelRidgeEstimator)
+                        KNNEstimator, GBDTEstimator, KernelRidgeEstimator)
 import itertools
 from sklearn import cross_validation
 from hd_metrics import fmean_squared_error
+from ensemble_selection import EnsembleSelection
 
 
 class FeatureLoader(object):
@@ -90,7 +91,6 @@ class FeatureLoader(object):
                 COSDIST = kargs['COSDIST']                               
             if key == 'W2V':
                 W2V = kargs['W2V']
-
                             
         # Feature extraction
         featgen = FeatureGenerator()
@@ -156,57 +156,27 @@ if __name__ == '__main__':
     # Load features
     featloader = FeatureLoader(DATA=False, NGRAM=False, JOINNG=False, W2VLEM=False)
     nd_train, nd_test, nd_label = featloader.load()
-    
-    # xgboost estimator
-    #est = XGBEstimator()
-    #xgbest.cv(nd_train, nd_label)
-    #model = est.train(nd_train, nd_label)
-    #xg_ypred = est.predict(model, nd_test)
 
     # Split train data into two part
     nd_t1, nd_t2, nd_l1, nd_l2 = cross_validation.train_test_split(\
                 nd_train, nd_label, test_size=0.5, random_state=2016)
-                
-    if False:    
-        # Get predicts of different estimators
-        ypreds = {}     
-        for est in [XGBEstimator(), LassoEstimator(), RidgeEstimator(), RFREstimator()]:
-            model = est.train(nd_t1, nd_l1)
-            ypred = est.predict(model, nd_t2)
-            ypreds[est.name] = ypred
-        dumpit(ypreds, 'ypreds')    
-    
-    ypreds = loadit('ypreds')
-    # init weights
-    record = []
-    ensem_ypred = ypreds['xgboost']# + 0.5*ypreds['rfr']
-    print(fmean_squared_error(nd_l2, ensem_ypred))
-    w1, w2 = 0.5, 0.5
-    # ensemble
-    for i in range(10):
-        best_score = 1.
-        for name in ypreds.keys():   
-            tmp_ypred = w1*ensem_ypred + w2*ypreds[name]
-            score = fmean_squared_error(nd_l2, tmp_ypred)
-            if score < best_score:
-                best_choice = name
-                best_score = score
-        ensem_ypred = w1*ensem_ypred + w2*ypreds[best_choice]
-        record.append(best_choice)
-        print('Ensemble score of round', i, ':', best_score)
-    print(record)
-    
-    # Ensemble predicts of different estimators
-    if True:
-        ypreds = {}     
-        for est in [XGBEstimator(), LassoEstimator(), RidgeEstimator(), RFREstimator()]:
-            model = est.train(nd_train, nd_label)
-            ypred = est.predict(model, nd_test)
-            ypreds[est.name] = ypred
+             
+    # prepare estimators
+    estimators = [XGBEstimator(), RidgeEstimator(), KNNEstimator(), LassoEstimator()]
+    rfr_estimators = []
+    for max_features in range(15,65,10):
+        for max_depth in range(10,60,10):
+            rfr_estimators.append(RFREstimator(max_features=max_features,max_depth=max_depth))
+    estimators += rfr_estimators
             
-        ensem_ypred = 0.5*ypreds['xgboost'] + 0.5*ypreds['rfr']
-        #for name in record:
-        #    ensem_ypred = w1*ensem_ypred + w2*ypreds[name]
-        submit(ensem_ypred)
+    ensem = EnsembleSelection(estimators)   
+    # Get record
+    record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=200, update_list=[])
+    # Ensemble predicts of different estimators
+    ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=[])
+            
+    #ensem_ypred = 0.5*ypreds['xgboost'] + 0.5*ypreds['rfr']
+    
+    submit(ensem_ypred)
 
 

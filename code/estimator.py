@@ -1,8 +1,9 @@
 import hd_metrics
 from sklearn import grid_search
 from util import timethis
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn import linear_model
+from sklearn.neighbors import KNeighborsRegressor
 import xgboost as xgb
 from sklearn.svm import SVR
 from sklearn.kernel_ridge import KernelRidge
@@ -20,22 +21,30 @@ class RFREstimator(BaseEstimator):
     """
     skearn.ensemble.RandomForestRegressor
     """
-    def __init__(self):
-        super(RFREstimator, self).__init__('rfr')
-        
-    @timethis
-    def train(self, nd_train, nd_label):
-        print("Start training {:s}..".format(self.name))
-        rfr = RandomForestRegressor(n_estimators=500, n_jobs=-1, random_state=2016, verbose=1)
+    def __init__(self, max_features, max_depth):
+        self.max_features = max_features
+        self.max_depth = max_depth
+        super(RFREstimator, self).__init__('-'.join(['rfr', str(max_features), str(max_depth)]))
+    
+    def cv(self, nd_train, nd_label):
+        model = RandomForestRegressor(n_estimators=500, max_features=self.max_features, \
+                    max_depth=self.max_depth, n_jobs=-1, random_state=2016, verbose=1)
         param_grid = {'max_features': [35], 'max_depth': [30]}
-        model = grid_search.GridSearchCV(estimator=rfr, param_grid=param_grid, n_jobs=-1, cv=2, \
+        model = grid_search.GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1, cv=2, \
                                                    verbose = 1, scoring=hd_metrics.RMSE)
         model.fit(nd_train, nd_label)
-        
         print("Best parameters found by grid search:")
         print(model.best_params_)
         print("Best CV score:")
         print(model.best_score_)
+        return model    
+        
+    @timethis
+    def train(self, nd_train, nd_label):
+        print("Start training {:s}..".format(self.name))
+        model = RandomForestRegressor(n_estimators=500, max_features=self.max_features, \
+                    max_depth=self.max_depth, n_jobs=-1, random_state=2016, verbose=1)
+        model.fit(nd_train, nd_label)
         return model
         
     def predict(self, model, nd_test):
@@ -90,6 +99,44 @@ class XGBEstimator(BaseEstimator):
         return ypred
         
 
+class GBDTEstimator(BaseEstimator):
+    """
+    skearn.ensemble.GradientBoostingRegressor
+    To slow (>3h). Consider dropping this one.
+    """
+    def __init__(self, max_features, max_depth):
+        self.max_features = max_features
+        self.max_depth = max_depth
+        super(GBDTEstimator, self).__init__('-'.join(['gbdt', str(max_features), str(max_depth)]))
+    
+    def cv(self, nd_train, nd_label):
+        model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, random_state=2016)
+        param_grid = {'max_features': [20,35], 'max_depth': [30]}
+        model = grid_search.GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1, cv=2, \
+                                                   verbose = 1, scoring=hd_metrics.RMSE)
+        model.fit(nd_train, nd_label)
+        print("Best parameters found by grid search:")
+        print(model.best_params_)
+        print("Best CV score:")
+        print(model.best_score_)
+        return model    
+        
+    @timethis
+    def train(self, nd_train, nd_label):
+        print("Start training {:s}..".format(self.name))
+        model = GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, \
+                    max_features=self.max_features, \
+                    max_depth=self.max_depth, random_state=2016)
+        model.fit(nd_train, nd_label)
+        return model
+        
+    def predict(self, model, nd_test):
+        ypred = model.predict(nd_test)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
+        return ypred
+
+
 class LassoEstimator(BaseEstimator):
     """
     skearn.linear_model.Lasso
@@ -132,6 +179,35 @@ class RidgeEstimator(BaseEstimator):
         rid = linear_model.Ridge(alpha = 0.1)
         param_grid = {'alpha': [0.5], 'max_iter': [4000]}
         model = grid_search.GridSearchCV(estimator=rid, param_grid=param_grid, n_jobs=-1, cv=2, \
+                                                   verbose = 1, scoring=hd_metrics.RMSE)
+        model.fit(nd_train, nd_label)
+        
+        print("Best parameters found by grid search:")
+        print(model.best_params_)
+        print("Best CV score:")
+        print(model.best_score_)
+        return model
+        
+    def predict(self, model, nd_test):
+        ypred = model.predict(nd_test)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
+        return ypred
+        
+        
+class KNNEstimator(BaseEstimator):
+    """
+    sklearn.neighbors.KNeighborsRegressor
+    """
+    def __init__(self):
+        super(KNNEstimator, self).__init__('knn')
+        
+    @timethis
+    def train(self, nd_train, nd_label):
+        print("Start training {:s}..".format(self.name))
+        neigh = KNeighborsRegressor()
+        param_grid = {'n_neighbors': [80], 'p':[1]}
+        model = grid_search.GridSearchCV(estimator=neigh, param_grid=param_grid, n_jobs=-1, cv=2, \
                                                    verbose = 1, scoring=hd_metrics.RMSE)
         model.fit(nd_train, nd_label)
         
