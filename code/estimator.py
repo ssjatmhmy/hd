@@ -87,7 +87,7 @@ class XGBEstimator(BaseEstimator):
         param['nthread'] = 4
         param['eval_metric'] = 'rmse'
         plst = param.items()
-        num_round = 30    
+        num_round = 150    
         bst = xgb.train(plst, dtrain, num_round)
         return bst
       
@@ -174,9 +174,9 @@ class RidgeEstimator(BaseEstimator):
         super(RidgeEstimator, self).__init__('ridge')
         
     @timethis
-    def train(self, nd_train, nd_label):
+    def cv(self, nd_train, nd_label):
         print("Start training {:s}..".format(self.name))
-        rid = linear_model.Ridge(alpha = 0.1)
+        rid = linear_model.Ridge(alpha = 0.5, max_iter = 4000)
         param_grid = {'alpha': [0.5], 'max_iter': [4000]}
         model = grid_search.GridSearchCV(estimator=rid, param_grid=param_grid, n_jobs=-1, cv=2, \
                                                    verbose = 1, scoring=hd_metrics.RMSE)
@@ -187,6 +187,13 @@ class RidgeEstimator(BaseEstimator):
         print("Best CV score:")
         print(model.best_score_)
         return model
+        
+    @timethis
+    def train(self, nd_train, nd_label):
+        print("Start training {:s}..".format(self.name))
+        model = linear_model.Ridge(alpha = 0.5, max_iter = 4000)
+        model.fit(nd_train, nd_label)
+        return model 
         
     def predict(self, model, nd_test):
         ypred = model.predict(nd_test)

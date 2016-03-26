@@ -1,5 +1,6 @@
 from nltk.tokenize import TreebankWordTokenizer
 from nltk.stem import wordnet
+from google_wordmap import spell_check_dict
 import re
 import os
 fdir = os.path.split(os.path.realpath(__file__))[0]
@@ -38,6 +39,9 @@ W2V_PATH = os.path.join(root, 'tools-w2v', 'GoogleNews-vectors-negative300.bin')
 # Note: Do NOT change the name of this function.
 def clean_func(s): 
     s = str(s)
+    #s = spell_check_dict.get(s, s) 
+    if s in spell_check_dict.keys():
+        s = spell_check_dict[s]
     s = re.sub(r"(\w)\.([A-Z])", r"\1 \2", s) # split words with a.A
     s = s.lower()
     s = s.replace("  "," ")

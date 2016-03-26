@@ -11,6 +11,7 @@ import itertools
 from sklearn import cross_validation
 from hd_metrics import fmean_squared_error
 from ensemble_selection import EnsembleSelection
+from sklearn.decomposition import TruncatedSVD, NMF
 
 
 class FeatureLoader(object):
@@ -67,22 +68,26 @@ class FeatureLoader(object):
         
         Set ALL to True if you want to recompute all the features.
         """
-        WORDCOUNT, DIST, RFRIN, BRAND, TFIDF = False,False,False,False,False
+        WORDCOUNT, DIST, PUID, RFRIN, BRAND, TFIDF, TFIDFNMF = False,False,False,False,False,False,False
         COMPDIST, SEQ, COSDIST, W2V = False,False,False,False
         if 'ALL' in kargs.keys() and kargs['ALL'] is True:
-            WORDCOUNT, DIST, RFRIN, BRAND, TFIDF = True,True,True,True,True
+            WORDCOUNT, DIST, PUID, RFRIN, BRAND, TFIDF, TFIDFNMF = True,True,True,True,True,True,True
             COMPDIST, SEQ, COSDIST, W2V = True,True,True,True
         for key in kargs.keys():
             if key == 'WORDCOUNT':
                 WORDCOUNT = kargs['WORDCOUNT']
             if key == 'DIST':
-                DIST = kargs['DIST']            
+                DIST = kargs['DIST']   
+            if key == 'PUID':
+                PUID = kargs['PUID']                            
             if key == 'RFRIN':
                 RFRIN = kargs['RFRIN']
             if key == 'BRAND':
                 BRAND = kargs['BRAND']   
             if key == 'TFIDF':
                 TFIDF = kargs['TFIDF']
+            if key == 'TFIDFNMF':
+                TFIDFNMF = kargs['TFIDFNMF']
             if key == 'COMPDIST':
                 COMPDIST = kargs['COMPDIST']            
             if key == 'SEQ':
@@ -100,6 +105,9 @@ class FeatureLoader(object):
         # Generate distance features
         if DIST is True:
             featgen.extract_distance_feats(loadit('df_ngram'))
+        # Generate product uid feature
+        if PUID is True:
+            featgen.extract_puid_feats(loadit('df_data'))
             
         # RFR Feature extraction
         rfrfeatgen = RFRFeatureGenerator()
@@ -111,7 +119,10 @@ class FeatureLoader(object):
             rfrfeatgen.extract_brand_feats(loadit('df_ngram'), loadit('df_data'), loadit('df_wordcountfeats'))
         # get tfidf features
         if TFIDF is True:
-            rfrfeatgen.extract_tfidf_feats(loadit('df_data'), 7)
+            rfrfeatgen.extract_tfidf_feats(loadit('df_data'), 6)
+        # get tfidf features
+        if TFIDFNMF is True:
+            rfrfeatgen.extract_tfidf_nmf_feats(loadit('df_data'), 20)
             
         # SEC Feature extraction
         secfeatgen = SECFeatureGenerator(config)      
@@ -129,17 +140,19 @@ class FeatureLoader(object):
         # Gather all features
         df_wordcountfeats = loadit('df_wordcountfeats')
         df_distancefeats = loadit('df_distancefeats')
+        #df_puid_feats = loadit('df_puid_feats')
         df_rfrin_feats = loadit('df_rfrin_feats')
         df_brand_feats = loadit('df_brand_feats')
-        df_tfidf_feats = loadit('df_tfidf_feats')
+        df_tfidf_feats = loadit('df_tfidf_feats') # better use df_tfidf_feats.
+        df_tfidf_nmf_feats = loadit('df_tfidf_nmf_feats')
         df_compressdist_feats = loadit('df_compressdist_feats')
         df_seq_feats = loadit('df_seq_feats')    
         df_cosdist_feats = loadit('df_cosdist_feats') 
         df_w2v_feats = loadit('df_w2v_feats')      
-        
-        feat_list = [df_wordcountfeats, df_rfrin_feats, df_distancefeats, df_brand_feats, \
-                    df_tfidf_feats, df_compressdist_feats, df_seq_feats, df_cosdist_feats, \
-                    df_w2v_feats]
+         
+        feat_list = [df_wordcountfeats, df_rfrin_feats, df_distancefeats,  \
+                    df_brand_feats, df_tfidf_feats, df_compressdist_feats, df_seq_feats, \
+                    df_cosdist_feats, df_w2v_feats] #df_tfidf_nmf_feats,df_puid_feats,               
                     
         df_feats = pd.DataFrame(index=range(self.n_data))
         for df in feat_list:
@@ -155,28 +168,50 @@ class FeatureLoader(object):
 if __name__ == '__main__': 
     # Load features
     featloader = FeatureLoader(DATA=False, NGRAM=False, JOINNG=False, W2VLEM=False)
-    nd_train, nd_test, nd_label = featloader.load()
-
-    # Split train data into two part
-    nd_t1, nd_t2, nd_l1, nd_l2 = cross_validation.train_test_split(\
-                nd_train, nd_label, test_size=0.5, random_state=2016)
-             
-    # prepare estimators
-    estimators = [XGBEstimator(), RidgeEstimator(), KNNEstimator(), LassoEstimator()]
-    rfr_estimators = []
-    for max_features in range(15,65,10):
-        for max_depth in range(10,60,10):
-            rfr_estimators.append(RFREstimator(max_features=max_features,max_depth=max_depth))
-    estimators += rfr_estimators
-            
-    ensem = EnsembleSelection(estimators)   
-    # Get record
-    record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=200, update_list=[])
-    # Ensemble predicts of different estimators
-    ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=[])
-            
-    #ensem_ypred = 0.5*ypreds['xgboost'] + 0.5*ypreds['rfr']
     
-    submit(ensem_ypred)
+    nd_train, nd_test, nd_label = featloader.re_load()
+    
+    if True: # Verify features. use KFold and ridge.
+        kf = cross_validation.KFold(nd_train.shape[0], n_folds=10)
+        kf_scores = []
+        ridge_est = RidgeEstimator()
+        for part1, part2 in kf:
+            nd_t1, nd_l1 = nd_train[part1], nd_label[part1]
+            nd_t2, nd_l2 = nd_train[part2], nd_label[part2]
+            model = ridge_est.train(nd_t1, nd_l1)
+            ypred = ridge_est.predict(model, nd_t2)
+            score = fmean_squared_error(nd_l2, ypred)
+            kf_scores.append(score)
+        print('Average kfold score of ridge:', sum(kf_scores)/len(kf_scores))
+    
+    if False: # Ensemable selection.
+        # Split train data into two part
+        nd_t1, nd_t2, nd_l1, nd_l2 = cross_validation.train_test_split(\
+                    nd_train, nd_label, test_size=0.65, random_state=2016)
+                 
+        # prepare estimators
+        xgb_est = XGBEstimator()
+        ridge_est = RidgeEstimator()
+        #knn_est = KNNEstimator()
+        #lasso_est = LassoEstimator()
+        estimators = [xgb_est, ridge_est]#, knn_est, lasso_est]
+        rfr_estimators = []
+        for max_features in range(25,75,10): #range(55,95,10)
+            for max_depth in range(20,40,10): #range(10,60,10)
+                rfr_estimators.append(RFREstimator(max_features=max_features,max_depth=max_depth))
+        estimators += rfr_estimators
+                
+        #rfr_35_30 = RFREstimator(max_features=35,max_depth=30)
+        #estimators.append(rfr_35_30)
+        
+        ensem = EnsembleSelection(estimators)   
+        # Get record
+        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=300, update_list=[])
+        # Ensemble predicts of different estimators
+        ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=estimators)
+                
+        #ensem_ypred = 0.5*ypreds['xgboost'] + 0.5*ypreds['rfr']
+        
+        submit(ensem_ypred)
 
 

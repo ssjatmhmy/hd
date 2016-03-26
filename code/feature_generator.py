@@ -5,7 +5,7 @@ import re
 import itertools
 from util import timethis
 from util import saveit, loadit
-from sklearn.decomposition import TruncatedSVD
+from sklearn.decomposition import TruncatedSVD, NMF
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import pairwise_distances
 import lzma
@@ -205,6 +205,15 @@ class FeatureGenerator(object):
         df_distancefeats =  df_feat
         saveit(df_distancefeats, 'df_distancefeats')
             
+    @timethis
+    def extract_puid_feats(self, df_data):    
+        """
+        Extract product uid feature.
+        """
+        df_feat = pd.DataFrame()    
+        df_feat['p_uid'] = pd.factorize(df_data['product_uid'])[0]    
+        saveit(df_feat, 'df_puid_feats')
+        
             
 class RFRFeatureGenerator(object):
     """
@@ -350,21 +359,19 @@ class RFRFeatureGenerator(object):
     @timethis
     def extract_tfidf_feats(self, df_data, n_components):
         """
-        Extract tfidf features.
-        
-        Returns:
-            df_feat(pd.DataFrame)        
+        Extract tfidf features using TruncatedSVD.      
         """        
         df_feat = pd.DataFrame(index=range(df_data.shape[0]))
         tfidf = TfidfVectorizer(ngram_range=(2, 4), stop_words='english')
         tsvd = TruncatedSVD(n_components=n_components, random_state = 2016)
-        df_data['q'].to_csv('q')
-        df_data['t'].to_csv('t')
-        df_data['d'].to_csv('d')
+        df_data['q'].to_csv('q', index=False)
+        df_data['t'].to_csv('t', index=False)
+        df_data['d'].to_csv('d', index=False)
+        print('fitting in tfidf')
         tfidf.set_params(input='filename')        
         tfidf.fit(['q','t','d'])
         tfidf.set_params(input='content')  
-        for col in ['q', 't', 'd', 'b']:
+        for col in ['d', 't', 'q', 'b']:
             print('process column', col)
             txt = df_data[col]
             tfidf_mat = tfidf.transform(txt)
@@ -372,9 +379,35 @@ class RFRFeatureGenerator(object):
             tmp = pd.DataFrame(nd_feat, columns=[col+'_tfidf_comp'+str(i) \
                                         for i in range(n_components)])
             df_feat = pd.merge(df_feat, tmp, left_index=True, right_index=True)
-        df_tfidf_feats = df_feat
-        saveit(df_tfidf_feats, 'df_tfidf_feats')
-        
+        saveit(df_feat, 'df_tfidf_feats')
+
+    @timethis
+    def extract_tfidf_nmf_feats(self, df_data, n_components):
+        """
+        Extract tfidf features using nmf.     
+        """        
+        df_feat = pd.DataFrame(index=range(df_data.shape[0]))
+        tfidf = TfidfVectorizer(ngram_range=(2, 3), stop_words='english')
+        tsvd = TruncatedSVD(n_components=n_components, random_state = 2016)
+        nmf = NMF(solver='cd', n_components=n_components, init='nndsvda',
+                    random_state=0, tol=1e-3)
+        df_data['q'].to_csv('q', index=False)
+        df_data['t'].to_csv('t', index=False)
+        df_data['d'].to_csv('d', index=False)
+        print('fitting in tfidf')
+        tfidf.set_params(input='filename')        
+        tfidf.fit(['q','t','d'])
+        tfidf.set_params(input='content')  
+        for col in ['d', 't', 'q', 'b']:
+            print('process column', col)
+            txt = df_data[col]
+            tfidf_mat = tfidf.transform(txt)
+            nd_feat = nmf.fit_transform(tfidf_mat)
+            tmp = pd.DataFrame(nd_feat, columns=[col+'_tfidf_nmf_comp'+str(i) \
+                                        for i in range(n_components)])
+            df_feat = pd.merge(df_feat, tmp, left_index=True, right_index=True)
+        saveit(df_feat, 'df_tfidf_nmf_feats')
+      
         
 class SECFeatureGenerator(object):
     """

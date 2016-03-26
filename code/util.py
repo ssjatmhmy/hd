@@ -26,10 +26,10 @@ def saveit(df, fname):
     Save pd.DataFrame to csv file and pickle file.
     """
     csvname, pklname = fname + '.csv', fname + '.pkl'
-    df.to_csv(os.path.join('tmp', csvname))
+    df.to_csv(os.path.join('tmp2', csvname))
     if config.DEBUG is True:
         return
-    with open(os.path.join('tmp', pklname), 'wb') as f:
+    with open(os.path.join('tmp2', pklname), 'wb') as f:
         pickle.dump(df, f, -1)
 
 
@@ -38,7 +38,7 @@ def loadit(fname):
     Load obj from pickle file.
     """
     pklname = fname + '.pkl'
-    with open(os.path.join('tmp', pklname), 'rb') as f:
+    with open(os.path.join('tmp2', pklname), 'rb') as f:
         obj = pickle.load(f) 
     return obj
                                   
@@ -48,7 +48,7 @@ def dumpit(obj, fname):
     Dump the obj using pickle.
     """
     pklname = fname + '.pkl'
-    with open(os.path.join('tmp', pklname), 'wb') as f:
+    with open(os.path.join('tmp2', pklname), 'wb') as f:
         pickle.dump(obj, f, -1)
                
 

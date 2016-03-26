@@ -1,2 +1,4 @@
 anaconda 3.5
-xgboost
+xgboost (ref: DMLC/xgboost)
+gensim (pip install --upgrade gensim)
+ipdb
