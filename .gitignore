@@ -2,10 +2,14 @@ misc
 *.py~
 *~
 code/tmp/*
+code/tmp2/*
 data/attributes.csv
 data/product_descriptions.csv
 data/sample_submission.csv
 data/test.csv
 data/train.csv
 code/__pycache__
+code/hidden
+code/tmp2_nmf_uid
+code/tmp2_tfidf
 tools-w2v
