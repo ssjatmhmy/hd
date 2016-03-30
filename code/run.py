@@ -3,7 +3,7 @@ import pandas as pd
 import config
 from dataloader import DataLoader
 from preprocessor import PreProcessor
-from util import saveit, loadit, dumpit, submit
+from util import saveit, loadit, loadcsv, dumpit, submit
 from feature_generator import FeatureGenerator, RFRFeatureGenerator, SECFeatureGenerator
 from estimator import (RFREstimator, XGBEstimator, LassoEstimator, RidgeEstimator, 
                         KNNEstimator, GBDTEstimator, KernelRidgeEstimator)
@@ -12,6 +12,8 @@ from sklearn import cross_validation
 from hd_metrics import fmean_squared_error
 from ensemble_selection import EnsembleSelection
 from sklearn.decomposition import TruncatedSVD, NMF
+import itertools
+import matplotlib.pyplot as plt
 
 
 class FeatureLoader(object):
@@ -144,21 +146,42 @@ class FeatureLoader(object):
         df_rfrin_feats = loadit('df_rfrin_feats')
         df_brand_feats = loadit('df_brand_feats')
         df_tfidf_feats = loadit('df_tfidf_feats') # better use df_tfidf_feats.
-        df_tfidf_nmf_feats = loadit('df_tfidf_nmf_feats')
+        #df_tfidf_nmf_feats = loadit('df_tfidf_nmf_feats')
         df_compressdist_feats = loadit('df_compressdist_feats')
         df_seq_feats = loadit('df_seq_feats')    
         df_cosdist_feats = loadit('df_cosdist_feats') 
         df_w2v_feats = loadit('df_w2v_feats')      
+        df_tsne_feats = loadcsv('df_tsne_feats')
+        #df_tsne_gather_feats = loadcsv('df_tsne_gather_feats')
          
         feat_list = [df_wordcountfeats, df_rfrin_feats, df_distancefeats,  \
                     df_brand_feats, df_tfidf_feats, df_compressdist_feats, df_seq_feats, \
-                    df_cosdist_feats, df_w2v_feats] #df_tfidf_nmf_feats,df_puid_feats,               
+                    df_cosdist_feats, df_w2v_feats, df_tsne_feats] #df_tfidf_nmf_feats,df_puid_feats,               
                     
         df_feats = pd.DataFrame(index=range(self.n_data))
         for df in feat_list:
             df_feats = pd.merge(df_feats, df, left_index=True, right_index=True)
         saveit(df_feats, 'df_feats')
 
+        """
+        print('start combining..')
+        print('comb2')
+        for A, B in itertools.combinations(df_wordcountfeats.columns,2):
+            feat = "_".join([A, B])
+            df_feats[feat] = df_feats[A] - df_feats[B]
+        """
+        """
+        print('comb3')
+        for A, B, C in itertools.combinations(df_feats.columns,3):
+            feat = "_".join([A, B, C])
+            df_feats[feat] = df_feats[A] - df_feats[B] - df_feats[C]
+        print('comb4')
+        for A, B, C, D in itertools.combinations(df_feats.columns,4):
+            feat = "_".join([A, B, C, D])
+            df_feats[feat] = df_feats[A] - df_feats[B] - df_feats[C] - df_feats[D] 
+  
+        saveit(df_feats, 'df_feats')
+        """          
         # Divide into train and test data
         nd_train = df_feats[:self.n_train].values
         nd_test = df_feats[self.n_train:].values            
@@ -169,22 +192,26 @@ if __name__ == '__main__':
     # Load features
     featloader = FeatureLoader(DATA=False, NGRAM=False, JOINNG=False, W2VLEM=False)
     
-    nd_train, nd_test, nd_label = featloader.re_load()
+    nd_train, nd_test, nd_label = featloader.load()
     
-    if True: # Verify features. use KFold and ridge.
-        kf = cross_validation.KFold(nd_train.shape[0], n_folds=10)
+    if False: # Verify features. use KFold and ridge.
+        kf = cross_validation.KFold(nd_train.shape[0], n_folds=4, shuffle=True, random_state=2016)
         kf_scores = []
-        ridge_est = RidgeEstimator()
+        xgb_est = XGBEstimator() #RidgeEstimator()
         for part1, part2 in kf:
             nd_t1, nd_l1 = nd_train[part1], nd_label[part1]
             nd_t2, nd_l2 = nd_train[part2], nd_label[part2]
-            model = ridge_est.train(nd_t1, nd_l1)
-            ypred = ridge_est.predict(model, nd_t2)
+            model = xgb_est.eval_train(nd_t1, nd_l1, nd_t2, nd_l2)
+            ypred = xgb_est.eval_predict(model, nd_t2)
             score = fmean_squared_error(nd_l2, ypred)
             kf_scores.append(score)
-        print('Average kfold score of ridge:', sum(kf_scores)/len(kf_scores))
+        
+        plt.figure()    
+        ts = pd.Series(model.booster().get_fscore())
+        ts.sort_values()[-15:].plot(kind="barh", title=("features importance"))        
+        print('Average kfold score of xgb:', sum(kf_scores)/len(kf_scores))
     
-    if False: # Ensemable selection.
+    if True: # Ensemable selection.
         # Split train data into two part
         nd_t1, nd_t2, nd_l1, nd_l2 = cross_validation.train_test_split(\
                     nd_train, nd_label, test_size=0.65, random_state=2016)
@@ -192,12 +219,10 @@ if __name__ == '__main__':
         # prepare estimators
         xgb_est = XGBEstimator()
         ridge_est = RidgeEstimator()
-        #knn_est = KNNEstimator()
-        #lasso_est = LassoEstimator()
-        estimators = [xgb_est, ridge_est]#, knn_est, lasso_est]
+        estimators = [xgb_est, ridge_est]
         rfr_estimators = []
-        for max_features in range(25,75,10): #range(55,95,10)
-            for max_depth in range(20,40,10): #range(10,60,10)
+        for max_features in range(35,75,10): #range(55,95,10)
+            for max_depth in range(10,30,10): #range(10,60,10)
                 rfr_estimators.append(RFREstimator(max_features=max_features,max_depth=max_depth))
         estimators += rfr_estimators
                 
@@ -206,11 +231,9 @@ if __name__ == '__main__':
         
         ensem = EnsembleSelection(estimators)   
         # Get record
-        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=300, update_list=[])
+        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=300, update_list=[xgb_est])
         # Ensemble predicts of different estimators
-        ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=estimators)
-                
-        #ensem_ypred = 0.5*ypreds['xgboost'] + 0.5*ypreds['rfr']
+        ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=[xgb_est])
         
         submit(ensem_ypred)
 

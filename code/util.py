@@ -41,6 +41,15 @@ def loadit(fname):
     with open(os.path.join('tmp2', pklname), 'rb') as f:
         obj = pickle.load(f) 
     return obj
+
+
+def loadcsv(fname):
+    """
+    Load df from csv file.
+    """
+    csvname = fname + '.csv'
+    df = pd.read_csv(os.path.join('tmp2', csvname), index_col=0)
+    return df
                                   
 
 def dumpit(obj, fname):

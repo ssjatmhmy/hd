@@ -33,7 +33,7 @@ class EnsembleSelection(object):
             #ypreds[est.name][ypreds[est.name]>3]=3
         # init weights
         record = []
-        ensem_ypred = 0.5*ypreds['xgboost'] + 0.5*ypreds['rfr-35-30']
+        ensem_ypred = ypreds['xgboost']# + 0.5*ypreds['rfr-35-30']
         print('xgboost score:', fmean_squared_error(nd_l2, ypreds['xgboost']))
         print('Initial ensemable score:', fmean_squared_error(nd_l2, ensem_ypred))
         w1, w2 = 0.8, 0.2
@@ -70,7 +70,7 @@ class EnsembleSelection(object):
         ypreds = {}
         for est in self.estimators:
             ypreds[est.name] = loadit(est.name+'_ensem_ypred')
-        ensem_ypred = 0.5*ypreds['xgboost'] + 0.5*ypreds['rfr-35-30']
+        ensem_ypred = ypreds['xgboost']# + 0.5*ypreds['rfr-35-30']
         for name, w1, w2 in record:
             ensem_ypred = w1*ensem_ypred + w2*ypreds[name]
         return ensem_ypred

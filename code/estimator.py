@@ -5,7 +5,7 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn import linear_model
 from sklearn.neighbors import KNeighborsRegressor
 import xgboost as xgb
-from sklearn.svm import SVR
+from sklearn import svm
 from sklearn.kernel_ridge import KernelRidge
 import math
 from sklearn import cross_validation
@@ -71,6 +71,9 @@ class XGBEstimator(BaseEstimator):
         hist = xgb.cv(param, dtrain, num_round, nfold=2)
         print(hist)
     
+    def plot_importance(self, model):
+        xgb.plot_importance(model)
+    
     @timethis
     def cv(self, nd_train, nd_label):
         X_train, X_test, y_train, y_test = cross_validation.train_test_split(\
@@ -82,18 +85,36 @@ class XGBEstimator(BaseEstimator):
     @timethis
     def train(self, nd_train, nd_label):
         print("Start training {:s}..".format(self.name))
-        dtrain = xgb.DMatrix(nd_train, label=nd_label)
-        param = {'bst:max_depth':10, 'bst:eta':0.3, 'silent':1, 'objective':'reg:linear' }
-        param['nthread'] = 4
-        param['eval_metric'] = 'rmse'
-        plst = param.items()
-        num_round = 150    
-        bst = xgb.train(plst, dtrain, num_round)
+        rgr = xgb.XGBRegressor(max_depth = 9,
+                        learning_rate = 0.01,
+                        silent = 1,
+                        objective = 'reg:linear',
+                        nthread = 4,
+                        n_estimators=1600)
+        bst = rgr.fit(nd_train, nd_label, eval_metric='rmse')
         return bst
-      
+ 
+    @timethis
+    def eval_train(self, nd_train, nd_label, nd_eval, nd_evallabel):
+        print("Start training {:s}..".format(self.name))
+        rgr = xgb.XGBRegressor(max_depth = 9,
+                        learning_rate = 0.01,
+                        silent = 1,
+                        objective = 'reg:linear',
+                        nthread = 4,
+                        n_estimators=1000)
+        bst = rgr.fit(nd_train, nd_label, early_stopping_rounds=10, eval_metric='rmse',
+                        eval_set=[(nd_eval, nd_evallabel)])
+        return bst 
+    
+    def eval_predict(self, bst, nd_test):
+        ypred = bst.predict(nd_test, ntree_limit=bst.best_ntree_limit)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
+        return ypred    
+    
     def predict(self, bst, nd_test):
-        dtest = xgb.DMatrix(nd_test)
-        ypred = bst.predict(dtest)
+        ypred = bst.predict(nd_test)
         ypred[ypred<1]=1
         ypred[ypred>3]=3
         return ypred
@@ -276,10 +297,10 @@ class SVREstimator(BaseEstimator):
     Cost too much time. Consider dropping this one.
     """
     @timethis
-    def train(self, nd_train, nd_label):
-        clf = SVR()
+    def cv(self, nd_train, nd_label):
+        clf = svm.LinearSVR()
         #param_grid = {'kernel': ['linear','rbf','poly','sigmoid'], 'C': [0.1, 1.0, 2.0]}
-        param_grid = {'kernel': ['linear'], 'C': [1.0]}
+        param_grid = {'dual':　[False], 'C': [1.0]}
         model = grid_search.GridSearchCV(estimator=clf, param_grid=param_grid, n_jobs=-1, cv=2, \
                                                    verbose = 1, scoring=hd_metrics.RMSE)
         model.fit(nd_train, nd_label)
@@ -288,7 +309,19 @@ class SVREstimator(BaseEstimator):
         print(model.best_params_)
         print("Best CV score:")
         print(model.best_score_)   
+
+    @timethis
+    def train(self, nd_train, nd_label):
+        clf = svm.LinearSVR(dual=False)
+        model.fit(nd_train, nd_label)
+        return model
         
+    def predict(self, model, nd_test):
+        ypred = model.predict(nd_test)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
+        return ypred    
+
         
         
         
