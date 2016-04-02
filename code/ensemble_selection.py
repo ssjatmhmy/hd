@@ -1,6 +1,6 @@
 from util import saveit, loadit, dumpit, submit
 from estimator import (RFREstimator, XGBEstimator, LassoEstimator, RidgeEstimator, 
-                        KNNEstimator, SVREstimator, KernelRidgeEstimator)
+                        KNNEstimator, LSVREstimator, KernelRidgeEstimator)
 from hd_metrics import fmean_squared_error
 import numpy as np
 

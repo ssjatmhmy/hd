@@ -6,7 +6,7 @@ from preprocessor import PreProcessor
 from util import saveit, loadit, loadcsv, dumpit, submit
 from feature_generator import FeatureGenerator, RFRFeatureGenerator, SECFeatureGenerator
 from estimator import (RFREstimator, XGBEstimator, LassoEstimator, RidgeEstimator, 
-                        KNNEstimator, GBDTEstimator, KernelRidgeEstimator)
+                        KNNEstimator, GBDTEstimator, LSVREstimator)
 import itertools
 from sklearn import cross_validation
 from hd_metrics import fmean_squared_error
@@ -118,7 +118,9 @@ class FeatureLoader(object):
             rfrfeatgen.extract_rfrin_feats(loadit('df_join_ng'))
         if BRAND is True:
             # get rfr brand feature
-            rfrfeatgen.extract_brand_feats(loadit('df_ngram'), loadit('df_data'), loadit('df_wordcountfeats'))
+            rfrfeatgen.extract_brand_feats(loadit('df_ngram'), 
+                                           loadit('df_data'), 
+                                           loadit('df_wordcountfeats'))
         # get tfidf features
         if TFIDF is True:
             rfrfeatgen.extract_tfidf_feats(loadit('df_data'), 6)
@@ -142,21 +144,18 @@ class FeatureLoader(object):
         # Gather all features
         df_wordcountfeats = loadit('df_wordcountfeats')
         df_distancefeats = loadit('df_distancefeats')
-        #df_puid_feats = loadit('df_puid_feats')
         df_rfrin_feats = loadit('df_rfrin_feats')
         df_brand_feats = loadit('df_brand_feats')
-        df_tfidf_feats = loadit('df_tfidf_feats') # better use df_tfidf_feats.
-        #df_tfidf_nmf_feats = loadit('df_tfidf_nmf_feats')
+        df_tfidf_feats = loadit('df_tfidf_feats') 
         df_compressdist_feats = loadit('df_compressdist_feats')
         df_seq_feats = loadit('df_seq_feats')    
         df_cosdist_feats = loadit('df_cosdist_feats') 
         df_w2v_feats = loadit('df_w2v_feats')      
         df_tsne_feats = loadcsv('df_tsne_feats')
-        #df_tsne_gather_feats = loadcsv('df_tsne_gather_feats')
          
         feat_list = [df_wordcountfeats, df_rfrin_feats, df_distancefeats,  \
                     df_brand_feats, df_tfidf_feats, df_compressdist_feats, df_seq_feats, \
-                    df_cosdist_feats, df_w2v_feats, df_tsne_feats] #df_tfidf_nmf_feats,df_puid_feats,               
+                    df_cosdist_feats, df_w2v_feats, df_tsne_feats]      
                     
         df_feats = pd.DataFrame(index=range(self.n_data))
         for df in feat_list:
@@ -165,8 +164,8 @@ class FeatureLoader(object):
 
         """
         print('start combining..')
-        print('comb2')
-        for A, B in itertools.combinations(df_wordcountfeats.columns,2):
+        print('combine wordcountfeats')
+        for A, B in itertools.combinations(df_seq_feats.columns,2):
             feat = "_".join([A, B])
             df_feats[feat] = df_feats[A] - df_feats[B]
         """
@@ -194,28 +193,24 @@ if __name__ == '__main__':
     
     nd_train, nd_test, nd_label = featloader.load()
     
-    if False: # Verify features. use KFold and ridge.
+    if False: # Verify features. use KFold and xgb.
         kf = cross_validation.KFold(nd_train.shape[0], n_folds=4, shuffle=True, random_state=2016)
         kf_scores = []
-        xgb_est = XGBEstimator() #RidgeEstimator()
+        xgb_est = XGBEstimator() 
         for part1, part2 in kf:
             nd_t1, nd_l1 = nd_train[part1], nd_label[part1]
             nd_t2, nd_l2 = nd_train[part2], nd_label[part2]
             model = xgb_est.eval_train(nd_t1, nd_l1, nd_t2, nd_l2)
             ypred = xgb_est.eval_predict(model, nd_t2)
             score = fmean_squared_error(nd_l2, ypred)
-            kf_scores.append(score)
-        
-        plt.figure()    
-        ts = pd.Series(model.booster().get_fscore())
-        ts.sort_values()[-15:].plot(kind="barh", title=("features importance"))        
+            kf_scores.append(score)   
         print('Average kfold score of xgb:', sum(kf_scores)/len(kf_scores))
     
     if True: # Ensemable selection.
         # Split train data into two part
         nd_t1, nd_t2, nd_l1, nd_l2 = cross_validation.train_test_split(\
                     nd_train, nd_label, test_size=0.65, random_state=2016)
-                 
+           
         # prepare estimators
         xgb_est = XGBEstimator()
         ridge_est = RidgeEstimator()
@@ -225,15 +220,12 @@ if __name__ == '__main__':
             for max_depth in range(10,30,10): #range(10,60,10)
                 rfr_estimators.append(RFREstimator(max_features=max_features,max_depth=max_depth))
         estimators += rfr_estimators
-                
-        #rfr_35_30 = RFREstimator(max_features=35,max_depth=30)
-        #estimators.append(rfr_35_30)
         
         ensem = EnsembleSelection(estimators)   
         # Get record
-        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=300, update_list=[xgb_est])
+        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=300, update_list=[])
         # Ensemble predicts of different estimators
-        ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=[xgb_est])
+        ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=[])
         
         submit(ensem_ypred)
 

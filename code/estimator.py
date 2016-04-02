@@ -90,6 +90,9 @@ class XGBEstimator(BaseEstimator):
                         silent = 1,
                         objective = 'reg:linear',
                         nthread = 4,
+                        min_child_weight = 3,
+                        colsample_bytree = .8,
+                        subsample = .85,
                         n_estimators=1600)
         bst = rgr.fit(nd_train, nd_label, eval_metric='rmse')
         return bst
@@ -102,7 +105,10 @@ class XGBEstimator(BaseEstimator):
                         silent = 1,
                         objective = 'reg:linear',
                         nthread = 4,
-                        n_estimators=1000)
+                        min_child_weight = 3,
+                        colsample_bytree = .8,
+                        subsample = .85,
+                        n_estimators=2000)
         bst = rgr.fit(nd_train, nd_label, early_stopping_rounds=10, eval_metric='rmse',
                         eval_set=[(nd_eval, nd_evallabel)])
         return bst 
@@ -291,17 +297,19 @@ class ElasticNetEstimator(BaseEstimator):
         print(model.best_score_)        
         
         
-class SVREstimator(BaseEstimator):
+class LSVREstimator(BaseEstimator):
     """
     skearn.svm.SVR
     Cost too much time. Consider dropping this one.
     """
+    def __init__(self):
+        super(LSVREstimator, self).__init__('lsvr')
+    
     @timethis
     def cv(self, nd_train, nd_label):
-        clf = svm.LinearSVR()
-        #param_grid = {'kernel': ['linear','rbf','poly','sigmoid'], 'C': [0.1, 1.0, 2.0]}
-        param_grid = {'dual':　[False], 'C': [1.0]}
-        model = grid_search.GridSearchCV(estimator=clf, param_grid=param_grid, n_jobs=-1, cv=2, \
+        model = svm.SVR()#LinearSVR(random_state=2016)
+        param_grid = {'C':[0.04]}
+        model = grid_search.GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1, cv=2, \
                                                    verbose = 1, scoring=hd_metrics.RMSE)
         model.fit(nd_train, nd_label)
         
@@ -309,10 +317,12 @@ class SVREstimator(BaseEstimator):
         print(model.best_params_)
         print("Best CV score:")
         print(model.best_score_)   
+        return model
 
     @timethis
     def train(self, nd_train, nd_label):
-        clf = svm.LinearSVR(dual=False)
+        print("Start training {:s}..".format(self.name))
+        model = svm.LinearSVR(dual=True,random_state=2016)
         model.fit(nd_train, nd_label)
         return model
         
