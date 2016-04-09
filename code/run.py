@@ -161,26 +161,7 @@ class FeatureLoader(object):
         for df in feat_list:
             df_feats = pd.merge(df_feats, df, left_index=True, right_index=True)
         saveit(df_feats, 'df_feats')
-
-        """
-        print('start combining..')
-        print('combine wordcountfeats')
-        for A, B in itertools.combinations(df_seq_feats.columns,2):
-            feat = "_".join([A, B])
-            df_feats[feat] = df_feats[A] - df_feats[B]
-        """
-        """
-        print('comb3')
-        for A, B, C in itertools.combinations(df_feats.columns,3):
-            feat = "_".join([A, B, C])
-            df_feats[feat] = df_feats[A] - df_feats[B] - df_feats[C]
-        print('comb4')
-        for A, B, C, D in itertools.combinations(df_feats.columns,4):
-            feat = "_".join([A, B, C, D])
-            df_feats[feat] = df_feats[A] - df_feats[B] - df_feats[C] - df_feats[D] 
-  
-        saveit(df_feats, 'df_feats')
-        """          
+        
         # Divide into train and test data
         nd_train = df_feats[:self.n_train].values
         nd_test = df_feats[self.n_train:].values            
@@ -212,18 +193,29 @@ if __name__ == '__main__':
                     nd_train, nd_label, test_size=0.65, random_state=2016)
            
         # prepare estimators
-        xgb_est = XGBEstimator()
         ridge_est = RidgeEstimator()
-        estimators = [xgb_est, ridge_est]
+        estimators = [ridge_est]
+        
         rfr_estimators = []
-        for max_features in range(35,75,10): #range(55,95,10)
-            for max_depth in range(10,30,10): #range(10,60,10)
+        for max_features in range(35,95,10): #range(55,95,10)
+            for max_depth in range(10,40,10): #range(10,60,10)
                 rfr_estimators.append(RFREstimator(max_features=max_features,max_depth=max_depth))
         estimators += rfr_estimators
+
+        xgb_estimators = []
+        for max_depth in range(3,13,2): 
+            for min_child_weight in range(1,4,1): 
+                 for colsample_bytree in np.arange(0.6,1.2,0.2): 
+                    for n_estimators in range(1500,2100,200): 
+                        xgb_estimators.append(XGBEstimator(max_depth, 
+                                                           min_child_weight, 
+                                                           colsample_bytree, 
+                                                           n_estimators))
+        estimators += xgb_estimators      
         
         ensem = EnsembleSelection(estimators)   
         # Get record
-        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=300, update_list=[])
+        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=500, update_list=[])
         # Ensemble predicts of different estimators
         ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=[])
         

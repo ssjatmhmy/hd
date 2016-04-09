@@ -33,10 +33,9 @@ class EnsembleSelection(object):
             #ypreds[est.name][ypreds[est.name]>3]=3
         # init weights
         record = []
-        ensem_ypred = ypreds['xgboost']# + 0.5*ypreds['rfr-35-30']
-        print('xgboost score:', fmean_squared_error(nd_l2, ypreds['xgboost']))
+        ensem_ypred = ypreds['xgb-9-3-0.8-1900']# + 0.5*ypreds['rfr-35-30']
         print('Initial ensemable score:', fmean_squared_error(nd_l2, ensem_ypred))
-        w1, w2 = 0.8, 0.2
+        w1, w2 = 0.99, 0.01
         # ensemble
         best_i, best_loop_score = 0, 1.
         for i in range(loop):
@@ -69,8 +68,12 @@ class EnsembleSelection(object):
         self.update_standalone_predicts(nd_train, nd_label, nd_test, update_list)
         ypreds = {}
         for est in self.estimators:
-            ypreds[est.name] = loadit(est.name+'_ensem_ypred')
-        ensem_ypred = ypreds['xgboost']# + 0.5*ypreds['rfr-35-30']
+            try:
+              ypreds[est.name] = loadit(est.name+'_ensem_ypred')
+            except FileNotFoundError:
+              self.update_standalone_predicts(nd_train, nd_label, nd_test, [est])
+              ypreds[est.name] = loadit(est.name+'_ensem_ypred')
+        ensem_ypred = ypreds['xgb-9-3-0.8-1900']# + 0.5*ypreds['rfr-35-30']
         for name, w1, w2 in record:
             ensem_ypred = w1*ensem_ypred + w2*ypreds[name]
         return ensem_ypred

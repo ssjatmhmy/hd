@@ -58,8 +58,17 @@ class XGBEstimator(BaseEstimator):
     """
     xgboost
     """
-    def __init__(self):
-        super(XGBEstimator, self).__init__('xgboost')
+    def __init__(self, max_depth, min_child_weight, colsample_bytree, n_estimators):
+        self.max_depth = max_depth
+        self.min_child_weight = min_child_weight
+        self.colsample_bytree = colsample_bytree
+        self.n_estimators = n_estimators
+        est_name = '-'.join(['xgb', 
+                             str(max_depth), 
+                             str(min_child_weight), 
+                             str(colsample_bytree),
+                             str(n_estimators)])
+        super(XGBEstimator, self).__init__(est_name)
         
     @timethis
     def xgb_cv(self, nd_train, nd_label):
@@ -85,30 +94,42 @@ class XGBEstimator(BaseEstimator):
     @timethis
     def train(self, nd_train, nd_label):
         print("Start training {:s}..".format(self.name))
-        rgr = xgb.XGBRegressor(max_depth = 9,
+        rgr = xgb.XGBRegressor(max_depth = self.max_depth,
                         learning_rate = 0.01,
                         silent = 1,
                         objective = 'reg:linear',
                         nthread = 4,
-                        min_child_weight = 3,
-                        colsample_bytree = .8,
+                        min_child_weight = self.min_child_weight,
+                        colsample_bytree = self.colsample_bytree,
                         subsample = .85,
-                        n_estimators=1600)
+                        n_estimators = self.n_estimators)
         bst = rgr.fit(nd_train, nd_label, eval_metric='rmse')
         return bst
  
     @timethis
     def eval_train(self, nd_train, nd_label, nd_eval, nd_evallabel):
+        """
+        Best param:
+            max_depth = 9,
+            learning_rate = 0.01,
+            silent = 1,
+            objective = 'reg:linear',
+            nthread = 4,
+            min_child_weight = 3,
+            colsample_bytree = .8,
+            subsample = .85,
+            n_estimators=2000
+        """
         print("Start training {:s}..".format(self.name))
-        rgr = xgb.XGBRegressor(max_depth = 9,
+        rgr = xgb.XGBRegressor(max_depth = self.max_depth,
                         learning_rate = 0.01,
                         silent = 1,
                         objective = 'reg:linear',
                         nthread = 4,
-                        min_child_weight = 3,
-                        colsample_bytree = .8,
+                        min_child_weight = self.min_child_weight,
+                        colsample_bytree = self.colsample_bytree,
                         subsample = .85,
-                        n_estimators=2000)
+                        n_estimators = self.n_estimators) 
         bst = rgr.fit(nd_train, nd_label, early_stopping_rounds=10, eval_metric='rmse',
                         eval_set=[(nd_eval, nd_evallabel)])
         return bst 
