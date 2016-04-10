@@ -171,10 +171,10 @@ class FeatureLoader(object):
 if __name__ == '__main__': 
     # Load features
     featloader = FeatureLoader(DATA=False, NGRAM=False, JOINNG=False, W2VLEM=False)
-    
     nd_train, nd_test, nd_label = featloader.load()
     
-    if False: # Verify features. use KFold and xgb.
+    # Verify features. use KFold and xgb.
+    if False: 
         kf = cross_validation.KFold(nd_train.shape[0], n_folds=4, shuffle=True, random_state=2016)
         kf_scores = []
         xgb_est = XGBEstimator() 
@@ -187,14 +187,17 @@ if __name__ == '__main__':
             kf_scores.append(score)   
         print('Average kfold score of xgb:', sum(kf_scores)/len(kf_scores))
     
-    if True: # Ensemable selection.
+    # Ensemable selection.
+    if True: 
         # Split train data into two part
         nd_t1, nd_t2, nd_l1, nd_l2 = cross_validation.train_test_split(\
                     nd_train, nd_label, test_size=0.65, random_state=2016)
-           
-        # prepare estimators
-        ridge_est = RidgeEstimator()
-        estimators = [ridge_est]
+        # prepare estimators   
+        estimators = []
+        ridge_estimators = []
+        for alpha in np.arange(0.001,2,0.01):
+            ridge_estimators.append(RidgeEstimator(alpha))
+        estimators += ridge_estimators
         
         rfr_estimators = []
         for max_features in range(35,95,10): #range(55,95,10)
@@ -215,7 +218,7 @@ if __name__ == '__main__':
         
         ensem = EnsembleSelection(estimators)   
         # Get record
-        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=500, update_list=[])
+        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=500, update_list=ridge_estimators)
         # Ensemble predicts of different estimators
         ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=[])
         

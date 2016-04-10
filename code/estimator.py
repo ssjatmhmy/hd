@@ -218,8 +218,10 @@ class RidgeEstimator(BaseEstimator):
     """
     skearn.linear_model.Ridge
     """
-    def __init__(self):
-        super(RidgeEstimator, self).__init__('ridge')
+    def __init__(self, alpha):
+        self.alpha = alpha
+        est_name = '-'.join(['ridge', str(alpha)])
+        super(RidgeEstimator, self).__init__(est_name)
         
     @timethis
     def cv(self, nd_train, nd_label):
@@ -239,7 +241,7 @@ class RidgeEstimator(BaseEstimator):
     @timethis
     def train(self, nd_train, nd_label):
         print("Start training {:s}..".format(self.name))
-        model = linear_model.Ridge(alpha = 0.5, max_iter = 4000)
+        model = linear_model.Ridge(alpha = self.alpha, max_iter = 4000)
         model.fit(nd_train, nd_label)
         return model 
         
