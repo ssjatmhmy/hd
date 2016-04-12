@@ -10,7 +10,13 @@ data/test.csv
 data/train.csv
 code/__pycache__
 code/hidden
+<<<<<<< HEAD
 code/data.text
 tools-w2v/data.text
 tools-w2v/GoogleNews-vectors-negative300.bin
 tools-w2v/hd
+=======
+code/tmp2_nmf_uid
+code/tmp2_tfidf
+tools-w2v
+>>>>>>> 54dfc9adea00171e6e5ca83c8b906ea2ef9e4c40
