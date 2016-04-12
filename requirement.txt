@@ -1,0 +1,7 @@
+anaconda 3.5
+anaconda 2 (for tsne)
+openblas (for tsne)
+tsne (pip install tsne. [should use python2. anaconda2 and openblas should be available])
+xgboost (ref: DMLC/xgboost)
+gensim (pip install --upgrade gensim)
+ipdb (pip install ipdb)
