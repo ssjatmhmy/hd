@@ -29,7 +29,7 @@ class EnsembleSelection(object):
         self.update_standalone_cv_predicts(nd_t1, nd_l1, nd_t2, update_list)
         ypreds = {}
         for est in self.estimators:
-            ypreds[est.name] = loadit(est.name+'_ypred') #+ 0.004 # add a little more?
+            ypreds[est.name] = loadit(est.name+'_ypred')
             #ypreds[est.name][ypreds[est.name]>3]=3
         # init weights
         record = []
@@ -78,7 +78,7 @@ class EnsembleSelection(object):
         name = 'xgb-9-3-0.8-1900'
         ensem_ypred = self._get_ypred(name, nd_train, nd_label, nd_test)# + 0.5*ypreds['rfr-35-30'] 
         for name, w1, w2 in record:
-            ypred = self._get_ypred(name, nd_train, nd_label, nd_test)         
+            ypred = self._get_ypred(name, nd_train, nd_label, nd_test)    
             ensem_ypred = w1*ensem_ypred + w2*ypred
         return ensem_ypred
             

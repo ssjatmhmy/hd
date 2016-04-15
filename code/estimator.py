@@ -10,6 +10,7 @@ from sklearn.kernel_ridge import KernelRidge
 import math
 from sklearn import cross_validation
 from abc import ABCMeta, abstractmethod
+import numpy as np
 
 
 class BaseEstimator(object):
@@ -146,7 +147,55 @@ class XGBEstimator(BaseEstimator):
         ypred[ypred>3]=3
         return ypred
         
-
+class XGBLEstimator(BaseEstimator):
+    """
+    xgboost gblinear ()
+    """
+    def __init__(self, plambda, alpha, lambda_bias, num_round):
+        self.plambda = plambda
+        self.alpha = alpha
+        self.lambda_bias = lambda_bias
+        self.num_round = num_round
+        est_name = '-'.join(['gblinear', 
+                             str(plambda),
+                             str(alpha),
+                             str(num_round)])
+        super(XGBLEstimator, self).__init__(est_name)
+        
+    @timethis
+    def eval_train(self, nd_train, nd_label, nd_eval, nd_evallabel):
+        dtrain = xgb.DMatrix(nd_train, label=nd_label)
+        deval = xgb.DMatrix(nd_eval, label=nd_evallabel)
+        param = {'silent':1, 'objective':'reg:linear', 'lambda':self.plambda, 
+                 'alpha':self.alpha, 'lambda_bias':self.lambda_bias}
+        param['nthread'] = 4
+        param['eval_metric'] = 'rmse'
+        num_round = self.num_round
+        model = xgb.train(param, dtrain, num_round, 
+                          evals = [(deval, 'eval')], 
+                          early_stopping_rounds = 10, 
+                          learning_rates=[0.2]*20+list(np.ones(num_round-20)*0.01))
+        return model
+        
+    @timethis
+    def train(self, nd_train, nd_label):
+        dtrain = xgb.DMatrix(nd_train, label=nd_label)
+        param = {'silent':1, 'objective':'reg:linear', 'lambda':self.plambda, 
+                 'alpha':self.alpha, 'lambda_bias':self.lambda_bias}
+        param['nthread'] = 4
+        param['eval_metric'] = 'rmse'
+        num_round = self.num_round
+        model = xgb.train(param, dtrain, num_round, 
+                          learning_rates=[0.2]*20+list(np.ones(num_round-20)*0.01))
+        return model    
+        
+    def predict(self, bst, nd_test):
+        dtest = xgb.DMatrix(nd_test)
+        ypred = bst.predict(dtest)
+        ypred[ypred<1]=1
+        ypred[ypred>3]=3
+        return ypred
+        
 class GBDTEstimator(BaseEstimator):
     """
     skearn.ensemble.GradientBoostingRegressor

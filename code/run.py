@@ -6,7 +6,7 @@ from dataloader import DataLoader
 from preprocessor import PreProcessor
 from util import saveit, loadit, loadcsv, dumpit, submit
 from feature_generator import FeatureGenerator, RFRFeatureGenerator, SECFeatureGenerator
-from estimator import (RFREstimator, XGBEstimator, LassoEstimator, RidgeEstimator, 
+from estimator import (RFREstimator, XGBEstimator, XGBLEstimator, LassoEstimator, RidgeEstimator, 
                         KNNEstimator, GBDTEstimator, LSVREstimator)
 import itertools
 from sklearn import cross_validation
@@ -181,6 +181,24 @@ if __name__ == '__main__':
         featloader = FeatureLoader(DATA=False, NGRAM=False, JOINNG=False, W2VLEM=False)
         nd_train, nd_test, nd_label = featloader.re_load(ALL=True)
     
+    # test xgb gblinear
+    if sys.argv[1] == "-gblinear":
+        # Load features
+        featloader = FeatureLoader(DATA=False, NGRAM=False, JOINNG=False, W2VLEM=False)
+        nd_train, nd_test, nd_label = featloader.load()
+                
+        kf = cross_validation.KFold(nd_train.shape[0], n_folds=4, shuffle=True, random_state=2016)
+        kf_scores = []
+        xgb_est = XGBLEstimator(700,0,10,2000) 
+        for part1, part2 in kf:
+            nd_t1, nd_l1 = nd_train[part1], nd_label[part1]
+            nd_t2, nd_l2 = nd_train[part2], nd_label[part2]
+            model = xgb_est.eval_train(nd_t1, nd_l1, nd_t2, nd_l2)
+            ypred = xgb_est.predict(model, nd_t2)
+            score = fmean_squared_error(nd_l2, ypred)
+            kf_scores.append(score)   
+        print('Average kfold score of xgb:', sum(kf_scores)/len(kf_scores))    
+    
     # Verify features. use KFold and xgb.
     if sys.argv[1] == "-PrintKfoldScore":
         # Load features
@@ -216,7 +234,7 @@ if __name__ == '__main__':
         estimators += ridge_estimators
         
         rfr_estimators = []
-        for max_features in range(35,95,10): #range(55,95,10)
+        for max_features in range(95,135,10): #range(55,95,10)
             for max_depth in range(10,40,10): #range(10,60,10)
                 rfr_estimators.append(RFREstimator(max_features=max_features,max_depth=max_depth))
         estimators += rfr_estimators
@@ -230,11 +248,18 @@ if __name__ == '__main__':
                                                            min_child_weight, 
                                                            colsample_bytree, 
                                                            n_estimators))
-        estimators += xgb_estimators      
+        estimators += xgb_estimators    
+        
+        xgbl_estimators = []
+        for plambda in range(250,1500,250):
+            for num_round in range(1000,2000,200):
+                alpha, lambda_bias = 0, 0
+                xgbl_estimators.append(XGBLEstimator(plambda,alpha,lambda_bias,num_round))
+        estimators += xgbl_estimators
         
         ensem = EnsembleSelection(estimators)   
         # Get record
-        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=500, update_list=rfr_estimators)
+        record = ensem.ensemble_select(nd_t1, nd_l1, nd_t2, nd_l2, loop=1000, update_list=estimators)
         # Ensemble predicts of different estimators
         ensem_ypred = ensem.ensemble_predicts(record, nd_train, nd_label, nd_test, update_list=[])
         

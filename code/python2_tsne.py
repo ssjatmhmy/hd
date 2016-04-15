@@ -113,7 +113,22 @@ def extract_tsne_gather_feat(stage):
         df_tsne_feats = df_feat
         df_tsne_feats.to_csv('tmp2/df_tsne_gather_feats.csv')
 
-
+def extract_w2v_tsne_feat():
+    """
+    Extract w2v tsne features.
+    Note: python2 only. Worst in cv, so do not use this.   
+    """  
+    df_w2v_feats = pd.read_csv('tmp2/df_w2v_feats.csv', index_col=0)
+    X = df_w2v_feats.values
+         
+    df_feat = pd.DataFrame(index=df_w2v_feats.index.values)
+    
+    X_scaled = StandardScaler().fit_transform(X)
+    X_tsne = bh_sne(X_scaled)
+    df_feat['tsne_t_1'] = X_tsne[:len(df_w2v_feats), 0]
+    df_feat['tsne_t_2'] = X_tsne[:len(df_w2v_feats), 1]
+    df_feat.to_csv('tmp2/df_tsne_w2v_feats.csv')
+    
 if __name__ == '__main__': 
     extract_tsne_feat()
 
