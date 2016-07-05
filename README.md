@@ -1,6 +1,6 @@
 # My solution for Kaggle 'Home Depot Product Search Relevance' competition
 
-This is my solution for the 'Home Depot Product Search Relevance' competition on Kaggle, which scored 0.45766 (76/2125) on Public Leaderboard. 
+This is my solution for the 'Home Depot Product Search Relevance' competition on Kaggle, which scored 0.45766 (76/2125) on Public Leaderboard and 0.45751 (83/2125) on Private Leaderboard. 
 
 Kaggle Profile : http://www.kaggle.com/ssjatmhmy
 
