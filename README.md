@@ -1,6 +1,10 @@
-# Kaggle competition source code
+# My solution for Kaggle 'Home Depot Product Search Relevance' competition
 
-I will write down the description of this code after the competition is finished.  
+This is my solution for the 'Home Depot Product Search Relevance' competition on Kaggle, which scores 0.45766 (76/2125 on Public Leaderboard). 
+
+Kaggle Profile : http://www.kaggle.com/ssjatmhmy
+
+## Generating the solution
 
 step 1  
 Run the following command to generate word2vec training data 'data.text'.  
