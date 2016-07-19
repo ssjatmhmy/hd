@@ -15,7 +15,7 @@ Then copy the generated file 'data.text' into the 'tools-w2v' folder.
 step 2  
 Run the following command to generate word2vec model, and then re-enter the 'code' folder:  
 cd tools-w2v  
-python3 train\_word2vec\_model.py  
+python3 train\_word2vec\_model.py data.text hd 
 cd ../code  
 
 step 3  
